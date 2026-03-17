@@ -54,7 +54,7 @@ actions:
     response_variable: response
     data: 
       id: "{{ device_tracker_or_person }}"
-      timestamp: "{{ states[device_tracker_or_person].last_updated }}"
+      timestamp: "{{ states[device_tracker_or_person].last_updated | as_timestamp | int * 1000 }}"
       lat: >-
         {{ state_attr(device_tracker_or_person, 'latitude') | float }}
       lon: >-
