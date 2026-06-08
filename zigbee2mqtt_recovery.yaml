@@ -1,0 +1,81 @@
+blueprint:
+  name: "[Zigbee2MQTT] Recovery nach HA-Start"
+  description: >-
+    Publiziert nach dem HA-Start die Standard-Birth-Message auf homeassistant/status,
+    damit Zigbee2MQTT seinen Bridge-State und alle Device-States neu publiziert.
+    Überbrückt node-spezifische Birth-Topics ohne Änderung an der MQTT-Integration.
+    Optionaler Fallback: Z2M-Restart via MQTT wenn die Bridge nach dem Timeout
+    noch unavailable ist.
+  domain: automation
+  input:
+    bridge_state_entity:
+      name: "Z2M Bridge State Entity"
+      description: "Binary Sensor, der den Verbindungsstatus der Z2M-Bridge anzeigt."
+      default: binary_sensor.zigbee2mqtt_bridge_connection_state
+      selector:
+        entity:
+          filter:
+            domain: binary_sensor
+
+    startup_delay:
+      name: "Wartezeit nach HA-Start (Sekunden)"
+      description: >-
+        Wartezeit bevor die Birth-Message publiziert wird.
+        Gibt der MQTT-Integration Zeit, sich zum Broker zu verbinden.
+      default: 30
+      selector:
+        number:
+          min: 5
+          max: 120
+          unit_of_measurement: "s"
+          mode: slider
+
+    restart_delay:
+      name: "Wartezeit vor Z2M-Restart-Fallback (Sekunden)"
+      description: >-
+        Wartezeit nach der Birth-Message bevor Z2M neu gestartet wird
+        (nur wenn Bridge noch unavailable ist).
+      default: 60
+      selector:
+        number:
+          min: 15
+          max: 300
+          unit_of_measurement: "s"
+          mode: slider
+
+    z2m_base_topic:
+      name: "Z2M MQTT Basis-Topic"
+      description: "Das MQTT-Basis-Topic von Zigbee2MQTT (Standard: zigbee2mqtt)."
+      default: "zigbee2mqtt"
+      selector:
+        text:
+
+trigger:
+  - trigger: homeassistant
+    event: start
+
+action:
+  - delay:
+      seconds: !input startup_delay
+  - action: mqtt.publish
+    data:
+      topic: "homeassistant/status"
+      payload: "online"
+      qos: 0
+      retain: false
+  - delay:
+      seconds: !input restart_delay
+  - variables:
+      _bridge_entity: !input bridge_state_entity
+      _z2m_topic: !input z2m_base_topic
+  - condition: template
+    value_template: >-
+      {{ states(_bridge_entity) in ['unavailable', 'unknown', 'off'] }}
+  - action: mqtt.publish
+    data:
+      topic: "{{ _z2m_topic }}/bridge/request/restart"
+      payload: ""
+      qos: 1
+      retain: false
+
+mode: single
