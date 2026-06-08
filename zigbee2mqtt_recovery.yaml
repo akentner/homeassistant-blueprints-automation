@@ -50,9 +50,28 @@ blueprint:
       selector:
         text:
 
+    birth_message_entity:
+      name: "HA MQTT Birth Message Sensor (optional)"
+      description: >-
+        Optional: Binary Sensor der den Status der HA MQTT Birth-Message überwacht
+        (subscribt auf das HA-node-spezifische Status-Topic). Wenn dieser Sensor auf
+        'on' wechselt, wird die Recovery sofort getriggert — schneller als
+        homeassistant.start, da er bereits beim MQTT-Connect feuert.
+        Leer lassen wenn kein solcher Sensor vorhanden ist.
+      default: null
+      selector:
+        entity:
+          filter:
+            domain: binary_sensor
+
 trigger:
   - trigger: homeassistant
     event: start
+    id: "ha_start"
+  - trigger: state
+    entity_id: !input birth_message_entity
+    to: "on"
+    id: "birth_message"
 
 action:
   - delay:
